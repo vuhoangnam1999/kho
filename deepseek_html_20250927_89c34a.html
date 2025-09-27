@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Bỏ Phiếu Trực Tuyến</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: opacity 0.5s ease;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            position: relative;
+        }
+
+        .voting-info {
+            background: var(--light);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .vote-rule {
+            font-size: 1.1em;
+            color: var(--dark);
+        }
+
+        .vote-rule i {
+            color: var(--primary);
+            margin-right: 8px;
+        }
+
+        .timer {
+            background: var(--primary);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-weight: bold;
+        }
+
+        .progress-container {
+            width: 100%;
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .progress-bar {
+            flex-grow: 1;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), #00b4d8);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9em;
+            color: var(--gray);
+            white-space: nowrap;
+        }
+
+        .candidates-container {
+            padding: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .candidates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .candidate-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .candidate-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--primary);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .candidate-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .candidate-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .candidate-card.selected {
+            border-color: var(--success);
+            background: #f0f9ff;
+        }
+
+        .candidate-card.selected::before {
+            background: var(--success);
+            transform: scaleX(1);
+        }
+
+        .candidate-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #bdc3c7;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .candidate-card.selected .candidate-image {
+            border-color: var(--success);
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(76, 201, 240, 0.4);
+        }
+
+        .candidate-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .candidate-position {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .candidate-info {
+            color: var(--gray);
+            font-size: 0.8em;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+
+        .select-indicator {
+            width: 25px;
+            height: 25px;
+            border: 2px solid #bdc3c7;
+            border-radius: 50%;
+            margin: 0 auto;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .candidate-card.selected .select-indicator {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .select-indicator::after {
+            content: '✓';
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .candidate-card.selected .select-indicator::after {
+            opacity: 1;
+        }
+
+        .candidate-number {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--primary);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .voting-controls {
+            background: var(--light);
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, var(--success), #00b4d8);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0.6;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .submit-btn.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1.05);
+        }
+
+        .submit-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 10px 25px rgba(76, 201, 240, 0.4);
+        }
+
+        .vote-counter {
+            color: var(--dark);
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .vote-counter span {
+            color: var(--primary);
+        }
+
+        .confirmation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            transform: scale(0.9);
+            animation: modalAppear 0.3s forwards;
+        }
+
+        @keyframes modalAppear {
+            to {
+                transform: scale(1);
+            }
+        }
+
+        .success-icon {
+            font-size: 4em;
+            color: var(--success);
+            margin-bottom: 20px;
+        }
+
+        .modal-content h3 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        .selected-candidates {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+
+        .selected-candidate {
+            background: var(--light);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .selected-candidate img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .candidate-details {
+            text-align: left;
+            flex-grow: 1;
+        }
+
+        .candidate-details .name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .candidate-details .position {
+            color: var(--gray);
+            font-size: 0.9em;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        .modal-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .confirm-btn {
+            background: var(--success);
+            color: white;
+        }
+
+        .cancel-btn {
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Màn hình chúc mừng */
+        .congratulations-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            flex-direction: column;
+            animation: fadeIn 1s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .congratulations-content {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 90%;
+            animation: slideUp 0.8s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .congratulations-icon {
+            font-size: 5em;
+            color: var(--success);
+            margin-bottom: 20px;
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-10px); }
+        }
+
+        .congratulations-content h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: var(--secondary);
+        }
+
+        .congratulations-content p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .congratulations-btn {
+            background: linear-gradient(135deg, var(--success), #00b4d8);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 auto;
+        }
+
+        .congratulations-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(76, 201, 240, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .candidates-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .voting-info, .voting-controls {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .modal-buttons {
+                flex-direction: column;
+            }
+
+            .congratulations-content {
+                padding: 30px;
+            }
+
+            .congratulations-content h2 {
+                font-size: 2em;
+            }
+        }
+
+        /* Custom scrollbar */
+        .candidates-container::-webkit-scrollbar,
+        .selected-candidates::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .candidates-container::-webkit-scrollbar-track,
+        .selected-candidates::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .candidates-container::-webkit-scrollbar-thumb,
+        .selected-candidates::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+
+        .candidates-container::-webkit-scrollbar-thumb:hover,
+        .selected-candidates::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="votingContainer">
+        <div class="header">
+            <h1><i class="fas fa-vote-yea"></i> HỆ THỐNG BỎ PHIẾU TRỰC TUYẾN</h1>
+            <p>Bình chọn cho 8 ứng viên mà bạn tin tưởng nhất</p>
+        </div>
+
+        <div class="voting-info">
+            <div class="vote-rule">
+                <i class="fas fa-info-circle"></i>
+                Vui lòng chọn <strong>8 ứng viên</strong> để hoàn tất bỏ phiếu
+            </div>
+            <div class="timer">
+                <i class="fas fa-clock"></i> Thời gian còn lại: <span id="timeLeft">10:00</span>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress" id="selectionProgress"></div>
+                </div>
+                <div class="progress-text" id="progressText">0/8 ứng viên đã chọn</div>
+            </div>
+        </div>
+
+        <div class="candidates-container">
+            <div class="candidates-grid" id="candidatesContainer">
+                <!-- Candidate cards will be generated here -->
+            </div>
+        </div>
+
+        <div class="voting-controls">
+            <div class="vote-counter">
+                <i class="fas fa-check-circle"></i> Đã chọn: <span id="selectedCount">0</span>/8 ứng viên
+            </div>
+            <button class="submit-btn" id="submitVote">
+                <i class="fas fa-paper-plane"></i> GỬI PHIẾU BẦU
+            </button>
+        </div>
+    </div>
+
+    <div class="confirmation-modal" id="confirmationModal">
+        <div class="modal-content">
+            <div class="success-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>XÁC NHẬN BỎ PHIẾU</h3>
+            <p>Bạn có chắc chắn muốn bỏ phiếu cho các ứng viên sau đây?</p>
+            
+            <div class="selected-candidates" id="selectedCandidatesList">
+                <!-- Selected candidates will be inserted here -->
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="modal-btn cancel-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i> Hủy bỏ
+                </button>
+                <button class="modal-btn confirm-btn" onclick="confirmVote()">
+                    <i class="fas fa-check"></i> Xác nhận
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Màn hình chúc mừng -->
+    <div class="congratulations-screen" id="congratulationsScreen">
+        <div class="congratulations-content">
+            <div class="congratulations-icon">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <h2>CHÚC MỪNG!</h2>
+            <p>Bạn đã hoàn thành việc bỏ phiếu thành công. Phiếu bầu của bạn đã được ghi nhận.</p>
+            <p>Cảm ơn bạn đã tham gia vào quá trình bầu chọn quan trọng này.</p>
+            <button class="congratulations-btn" onclick="location.reload()">
+                <i class="fas fa-redo"></i> Bỏ phiếu lại
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Dữ liệu 18 ứng viên mẫu
+        const candidates = [
+            {
+                id: 1,
+                name: "Nguyễn Văn A",
+                position: "Trưởng phòng Kinh doanh",
+                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+                description: "5 năm kinh nghiệm, chuyên môn vững vàng"
+            },
+            {
+                id: 2,
+                name: "Trần Thị B",
+                position: "Phó giám đốc Marketing",
+                image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+                description: "Sáng tạo, nhiệt huyết, có tầm nhìn chiến lược"
+            },
+            {
+                id: 3,
+                name: "Lê Văn C",
+                position: "Giám đốc Tài chính",
+                image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+                description: "Chuyên gia tài chính với 10 năm kinh nghiệm"
+            },
+            {
+                id: 4,
+                name: "Phạm Thị D",
+                position: "Trưởng phòng Nhân sự",
+                image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+                description: "Am hiểu tâm lý, có nhiều đóng góp cho công ty"
+            },
+            {
+                id: 5,
+                name: "Hoàng Văn E",
+                position: "Kỹ sư trưởng",
+                image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+                description: "Kỹ thuật xuất sắc, luôn đổi mới sáng tạo"
+            },
+            {
+                id: 6,
+                name: "Vũ Thị F",
+                position: "Chuyên viên Pháp chế",
+                image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
+                description: "Hiểu biết sâu rộng về pháp luật"
+            },
+            {
+                id: 7,
+                name: "Đặng Văn G",
+                position: "Trưởng phòng IT",
+                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+                description: "Công nghệ thông tin, quản lý hệ thống"
+            },
+            {
+                id: 8,
+                name: "Bùi Thị H",
+                position: "Giám đốc Sản xuất",
+                image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+                description: "Quản lý sản xuất hiệu quả, chất lượng"
+            },
+            {
+                id: 9,
+                name: "Phan Văn I",
+                position: "Trưởng phòng R&D",
+                image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+                description: "Nghiên cứu và phát triển sản phẩm mới"
+            },
+            {
+                id: 10,
+                name: "Ngô Thị K",
+                position: "Giám đốc Truyền thông",
+                image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+                description: "Truyền thông và quan hệ công chúng"
+            },
+            {
+                id: 11,
+                name: "Đỗ Văn L",
+                position: "Trưởng phòng Kỹ thuật",
+                image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+                description: "Kỹ thuật và bảo trì hệ thống"
+            },
+            {
+                id: 12,
+                name: "Mai Thị M",
+                position: "Giám đốc Nhân sự",
+                image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
+                description: "Quản lý và phát triển nguồn nhân lực"
+            },
+            {
+                id: 13,
+                name: "Cao Văn N",
+                position: "Trưởng phòng Kế toán",
+                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+                description: "Kế toán và tài chính nội bộ"
+            },
+            {
+                id: 14,
+                name: "Lý Thị O",
+                position: "Giám đốc Kinh doanh",
+                image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+                description: "Phát triển kinh doanh và mở rộng thị trường"
+            },
+            {
+                id: 15,
+                name: "Trương Văn P",
+                position: "Trưởng phòng Hành chính",
+                image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+                description: "Hành chính và quản trị văn phòng"
+            },
+            {
+                id: 16,
+                name: "Vương Thị Q",
+                position: "Giám đốc Chất lượng",
+                image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+                description: "Đảm bảo chất lượng sản phẩm và dịch vụ"
+            },
+            {
+                id: 17,
+                name: "Tạ Văn R",
+                position: "Trưởng phòng Logistics",
+                image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+                description: "Quản lý chuỗi cung ứng và logistics"
+            },
+            {
+                id: 18,
+                name: "Hồ Thị S",
+                position: "Giám đốc Đào tạo",
+                image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
+                description: "Đào tạo và phát triển nhân sự"
+            }
+        ];
+
+        // Biến toàn cục
+        let selectedCandidates = [];
+        const requiredVotes = 8;
+        let timeLeft = 600; // 10 phút tính bằng giây
+        let timerInterval;
+
+        // Hiển thị danh sách ứng viên
+        function renderCandidates() {
+            const container = document.getElementById('candidatesContainer');
+            container.innerHTML = '';
+
+            candidates.forEach(candidate => {
+                const isSelected = selectedCandidates.includes(candidate.id);
+                const card = document.createElement('div');
+                card.className = `candidate-card ${isSelected ? 'selected' : ''}`;
+                card.onclick = () => selectCandidate(candidate.id);
+
+                card.innerHTML = `
+                    <div class="candidate-number">${candidate.id}</div>
+                    <img src="${candidate.image}" alt="${candidate.name}" class="candidate-image">
+                    <div class="candidate-name">${candidate.name}</div>
+                    <div class="candidate-position">${candidate.position}</div>
+                    <div class="candidate-info">${candidate.description}</div>
+                    <div class="select-indicator"></div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            updateVoteCounter();
+            updateProgressBar();
+        }
+
+        // Chọn/bỏ chọn ứng viên
+        function selectCandidate(candidateId) {
+            if (selectedCandidates.includes(candidateId)) {
+                // Bỏ chọn nếu đã chọn
+                selectedCandidates = selectedCandidates.filter(id => id !== candidateId);
+            } else {
+                // Chỉ cho phép chọn tối đa 8 ứng viên
+                if (selectedCandidates.length < requiredVotes) {
+                    selectedCandidates.push(candidateId);
+                } else {
+                    alert(`Bạn chỉ được chọn tối đa ${requiredVotes} ứng viên.`);
+                    return;
+                }
+            }
+            renderCandidates();
+            updateSubmitButton();
+        }
+
+        // Cập nhật số phiếu đã chọn
+        function updateVoteCounter() {
+            const counter = document.getElementById('selectedCount');
+            counter.textContent = selectedCandidates.length;
+        }
+
+        // Cập nhật thanh tiến trình
+        function updateProgressBar() {
+            const progressBar = document.getElementById('selectionProgress');
+            const progressText = document.getElementById('progressText');
+            const progress = (selectedCandidates.length / requiredVotes) * 100;
+            
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${selectedCandidates.length}/${requiredVotes} ứng viên đã chọn`;
+        }
+
+        // Cập nhật trạng thái nút gửi phiếu
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitVote');
+            const isValid = selectedCandidates.length === requiredVotes;
+
+            if (isValid) {
+                submitBtn.classList.add('active');
+            } else {
+                submitBtn.classList.remove('active');
+            }
+        }
+
+        // Hiển thị modal xác nhận
+        function showConfirmationModal() {
+            if (selectedCandidates.length !== requiredVotes) {
+                alert(`Vui lòng chọn đúng ${requiredVotes} ứng viên để gửi phiếu.`);
+                return;
+            }
+
+            const modal = document.getElementById('confirmationModal');
+            const candidatesList = document.getElementById('selectedCandidatesList');
+            
+            // Xóa nội dung cũ
+            candidatesList.innerHTML = '';
+            
+            // Thêm các ứng viên đã chọn vào modal
+            selectedCandidates.forEach(candidateId => {
+                const candidate = candidates.find(c => c.id === candidateId);
+                const candidateElement = document.createElement('div');
+                candidateElement.className = 'selected-candidate';
+                candidateElement.innerHTML = `
+                    <img src="${candidate.image}" alt="${candidate.name}">
+                    <div class="candidate-details">
+                        <div class="name">${candidate.name}</div>
+                        <div class="position">${candidate.position}</div>
+                    </div>
+                    <div class="candidate-number">${candidate.id}</div>
+                `;
+                candidatesList.appendChild(candidateElement);
+            });
+            
+            modal.style.display = 'flex';
+        }
+
+        // Xác nhận bỏ phiếu
+        function confirmVote() {
+            // Dừng bộ đếm thời gian
+            clearInterval(timerInterval);
+            
+            // Ẩn modal xác nhận
+            closeModal();
+            
+            // Ẩn giao diện bỏ phiếu
+            document.getElementById('votingContainer').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('votingContainer').style.display = 'none';
+                
+                // Hiển thị màn hình chúc mừng
+                document.getElementById('congratulationsScreen').style.display = 'flex';
+            }, 500);
+        }
+
+        // Đóng modal
+        function closeModal() {
+            const modal = document.getElementById('confirmationModal');
+            modal.style.display = 'none';
+        }
+
+        // Cập nhật thời gian
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('timeLeft').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft > 0) {
+                timeLeft--;
+            } else {
+                // Hết thời gian
+                clearInterval(timerInterval);
+                document.getElementById('submitVote').disabled = true;
+                document.querySelector('.vote-rule').innerHTML = 
+                    '<i class="fas fa-exclamation-triangle"></i> <strong>ĐÃ HẾT THỜI GIAN BỎ PHIẾU</strong>';
+            }
+        }
+
+        // Khởi tạo
+        function init() {
+            document.getElementById('submitVote').onclick = showConfirmationModal;
+            renderCandidates();
+            
+            // Bắt đầu bộ đếm thời gian
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // Gọi hàm khởi tạo khi trang tải xong
+        window.onload = init;
+
+        // Đóng modal khi click bên ngoài
+        window.onclick = function(event) {
+            const modal = document.getElementById('confirmationModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
