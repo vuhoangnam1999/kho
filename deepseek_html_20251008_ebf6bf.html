@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Bỏ Phiếu Trực Tuyến</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Thêm thư viện SheetJS để xuất Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Giữ nguyên toàn bộ CSS cũ */
+        body {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .page {
+            min-height: 100vh;
+            transition: transform 0.5s ease-in-out;
+        }
+        
+        .page.hidden {
+            display: none;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .admin-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
+        }
+        
+        .header-gradient {
+            background: linear-gradient(135deg, #3a0ca3 0%, #4361ee 100%);
+        }
+        
+        .candidate-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        
+        .candidate-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .candidate-card.selected {
+            border: 3px solid #4cc9f0;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            transform: translateY(-4px);
+        }
+        
+        .progress-bar {
+            transition: all 0.5s ease;
+        }
+        
+        .submit-btn {
+            transition: all 0.3s ease;
+            border-radius: 15px;
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .submit-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(67, 97, 238, 0.4);
+        }
+        
+        .modal {
+            backdrop-filter: blur(10px);
+        }
+        
+        .candidate-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4361ee, #4cc9f0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 auto 12px;
+        }
+        
+        .check-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4cc9f0;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+        }
+        
+        .candidate-card.selected .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        .countdown {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .candidates-grid {
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1rem;
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .progress-bar-admin {
+            transition: width 0.5s ease;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .nav-btn {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #4361ee;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-btn:hover {
+            background: rgba(67, 97, 238, 0.9);
+            color: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .nav-btn.left {
+            left: 20px;
+        }
+        
+        .nav-btn.right {
+            right: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .candidates-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+            
+            .nav-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+        
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .candidates-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1rem;
+            }
+        }
+        
+        @media (min-width: 1025px) {
+            .candidates-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Buttons -->
+    <button class="nav-btn left" onclick="goToPage('voting')" id="nav-left">
+        <i class="fas fa-vote-yea"></i>
+    </button>
+    <button class="nav-btn right" onclick="goToPage('admin')" id="nav-right">
+        <i class="fas fa-chart-line"></i>
+    </button>
+
+    <!-- Page 1: Voting Page -->
+    <div class="page gradient-bg" id="voting-page">
+        <!-- Header Section -->
+        <header class="header-gradient text-white py-8 shadow-2xl">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <div class="mb-4">
+                    <i class="fas fa-vote-yea text-6xl mb-4"></i>
+                </div>
+                <h1 class="text-4xl md:text-5xl font-bold mb-4">
+                    BẦU CỬ BAN CHẤP HÀNH ĐOÀN TRƯỜNG
+                </h1>
+                <p class="text-xl md:text-2xl opacity-90">
+                    Bình chọn cho 15 ứng viên trong 19 ứng viên ưu tú
+                </p>
+                <div class="mt-6">
+                    <span class="bg-white bg-opacity-20 px-4 py-2 rounded-full text-sm">
+                        <i class="fas fa-arrow-right mr-2"></i>
+                        Vuốt sang phải để xem kết quả
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Voting Info Bar -->
+        <div class="bg-white shadow-lg py-6">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="text-center md:text-left">
+                        <p class="text-lg font-semibold text-gray-800 mb-2">
+                            Vui lòng chọn 15 ứng viên trong 19 ứng viên để hoàn tất bỏ phiếu
+                        </p>
+                        <div class="flex items-center justify-center md:justify-start gap-4">
+                            <span class="text-sm text-gray-600">Tiến độ:</span>
+                            <div class="w-48 bg-gray-200 rounded-full h-3">
+                                <div class="progress-bar bg-gradient-to-r from-blue-500 to-cyan-400 h-3 rounded-full" 
+                                     style="width: 0%" id="progress-bar"></div>
+                            </div>
+                            <span class="text-sm font-bold text-blue-600" id="progress-text">0/15</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600 mb-1">Thời gian còn lại:</p>
+                        <div class="countdown text-2xl font-bold text-red-600" id="countdown">05:00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+            <!-- Candidates Grid -->
+            <div class="candidates-grid grid mb-8" id="candidates-grid">
+                <!-- Candidates will be generated by JavaScript -->
+            </div>
+
+            <!-- Voting Controls -->
+            <div class="text-center bg-white rounded-3xl shadow-2xl p-8">
+                <div class="mb-6">
+                    <p class="text-2xl font-bold text-gray-800 mb-4">
+                        Đã chọn: <span class="text-blue-600" id="selected-count">0</span>/15 ứng viên
+                    </p>
+                    <div class="flex flex-wrap justify-center gap-2" id="selected-list">
+                        <!-- Selected candidates will appear here -->
+                    </div>
+                </div>
+                <button class="submit-btn bg-gradient-to-r from-blue-600 to-purple-600 text-white px-12 py-4 text-xl font-bold disabled:from-gray-400 disabled:to-gray-500" 
+                        id="submit-btn" disabled onclick="showConfirmation()">
+                    <i class="fas fa-paper-plane mr-2"></i>
+                    GỬI PHIẾU BẦU
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Page 2: Admin Page -->
+    <div class="page admin-gradient hidden" id="admin-page">
+        <!-- Header -->
+        <header class="admin-gradient text-white py-8 shadow-2xl">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-4xl font-bold mb-2">
+                            <i class="fas fa-chart-line mr-3"></i>
+                            KẾT QUẢ BẦU CỬ BCH ĐOÀN TRƯỜNG
+                        </h1>
+                        <p class="text-xl opacity-90">Thống kê và quản lý kết quả bầu cử Ban Chấp hành Đoàn trường</p>
+                        <div class="mt-4">
+                            <span class="bg-white bg-opacity-20 px-4 py-2 rounded-full text-sm">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Vuốt sang trái để bỏ phiếu
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm opacity-80">Cập nhật lần cuối:</p>
+                        <p class="text-lg font-semibold" id="last-update">--:--:--</p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full pulse"></div>
+                            <span class="text-sm">Đang theo dõi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-8 bg-gray-100 min-h-screen">
+            <!-- Statistics Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="stat-card bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Tổng phiếu bầu</p>
+                            <p class="text-3xl font-bold" id="total-votes">0</p>
+                        </div>
+                        <i class="fas fa-vote-yea text-4xl text-blue-200"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">Tỷ lệ tham gia</p>
+                            <p class="text-3xl font-bold" id="participation-rate">0%</p>
+                        </div>
+                        <i class="fas fa-users text-4xl text-green-200"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Ứng viên hàng đầu</p>
+                            <p class="text-lg font-bold" id="top-candidate">Chưa có</p>
+                        </div>
+                        <i class="fas fa-crown text-4xl text-purple-200"></i>
+                    </div>
+                </div>
+                
+                <div class="stat-card bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-2xl">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-orange-100 text-sm">Tổng ứng viên</p>
+                            <p class="text-3xl font-bold" id="total-candidates">19</p>
+                        </div>
+                        <i class="fas fa-user-friends text-4xl text-orange-200"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Results -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Vote Results Table -->
+                <div class="chart-container p-6">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-trophy text-blue-600 mr-2"></i>
+                        Bảng xếp hạng
+                    </h3>
+                    <div class="space-y-3 max-h-96 overflow-y-auto" id="results-table">
+                        <p class="text-gray-500 text-center py-8">Chưa có kết quả bỏ phiếu</p>
+                    </div>
+                </div>
+
+                <!-- Recent Votes -->
+                <div class="chart-container p-6">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">
+                        <i class="fas fa-history text-green-600 mr-2"></i>
+                        Phiếu bầu gần đây
+                    </h3>
+                    <div class="space-y-3 max-h-96 overflow-y-auto" id="recent-votes">
+                        <p class="text-gray-500 text-center py-8">Chưa có phiếu bầu nào</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- All Candidates Overview -->
+            <div class="chart-container p-6 mb-8">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-users text-purple-600 mr-2"></i>
+                    Tổng quan tất cả ứng viên
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="all-candidates">
+                    <!-- All candidates will be listed here -->
+                </div>
+            </div>
+
+            <!-- Export and Management Options -->
+            <div class="chart-container p-6">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6">
+                    <i class="fas fa-tools text-indigo-600 mr-2"></i>
+                    Công cụ quản lý
+                </h3>
+                <div class="flex flex-wrap gap-4 justify-center">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="exportResults('csv')">
+                        <i class="fas fa-file-csv mr-2"></i>Xuất CSV
+                    </button>
+                    <button class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="exportResults('json')">
+                        <i class="fas fa-file-code mr-2"></i>Xuất JSON
+                    </button>
+                    <!-- Thêm nút xuất Excel -->
+                    <button class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="exportResults('excel')">
+                        <i class="fas fa-file-excel mr-2"></i>Xuất Excel
+                    </button>
+                    <button class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="printResults()">
+                        <i class="fas fa-print mr-2"></i>In báo cáo
+                    </button>
+                    <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="refreshData()">
+                        <i class="fas fa-sync-alt mr-2"></i>Làm mới dữ liệu
+                    </button>
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors" 
+                            onclick="resetAllVotes()">
+                        <i class="fas fa-trash mr-2"></i>Xóa tất cả dữ liệu
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50" id="confirmation-modal">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="p-8">
+                <div class="text-center mb-6">
+                    <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">Xác nhận bỏ phiếu</h2>
+                    <p class="text-gray-600">Bạn đã chọn các ứng viên sau:</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8" id="confirmation-list">
+                    <!-- Selected candidates will be listed here -->
+                </div>
+                
+                <div class="flex gap-4 justify-center">
+                    <button class="px-8 py-3 bg-gray-500 text-white rounded-xl font-semibold hover:bg-gray-600 transition-colors" 
+                            onclick="hideConfirmation()">
+                        <i class="fas fa-times mr-2"></i>Hủy bỏ
+                    </button>
+                    <button class="px-8 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-blue-600 transition-all" 
+                            onclick="submitVote()">
+                        <i class="fas fa-check mr-2"></i>Xác nhận
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Screen -->
+    <div class="modal fixed inset-0 bg-gradient-to-br from-green-400 to-blue-500 hidden items-center justify-center z-50" id="success-modal">
+        <div class="text-center text-white px-4">
+            <i class="fas fa-trophy text-8xl mb-8 animate-bounce"></i>
+            <h1 class="text-5xl font-bold mb-4">Chúc mừng!</h1>
+            <p class="text-2xl mb-8">Phiếu bầu của bạn đã được ghi nhận thành công</p>
+            <div class="bg-white bg-opacity-20 rounded-2xl p-6 mb-8">
+                <p class="text-lg">Cảm ơn bạn đã tham gia bỏ phiếu</p>
+                <p class="text-sm opacity-80">Kết quả sẽ được công bố sau khi kết thúc cuộc bầu cử</p>
+            </div>
+            <div class="flex gap-4 justify-center">
+                <button class="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-xl hover:bg-gray-100 transition-colors" 
+                        onclick="startNewVote()">
+                    <i class="fas fa-plus mr-2"></i>Bỏ phiếu mới
+                </button>
+                <button class="bg-white bg-opacity-20 text-white px-8 py-4 rounded-xl font-bold text-xl hover:bg-opacity-30 transition-colors" 
+                        onclick="goToPage('admin')">
+                    <i class="fas fa-chart-line mr-2"></i>Xem kết quả
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeout Modal -->
+    <div class="modal fixed inset-0 bg-gradient-to-br from-red-400 to-orange-500 hidden items-center justify-center z-50" id="timeout-modal">
+        <div class="text-center text-white px-4">
+            <i class="fas fa-clock text-8xl mb-8 animate-pulse"></i>
+            <h1 class="text-5xl font-bold mb-4">Hết thời gian!</h1>
+            <p class="text-2xl mb-8">Thời gian bỏ phiếu đã kết thúc</p>
+            <div class="bg-white bg-opacity-20 rounded-2xl p-6 mb-8">
+                <p class="text-lg">Bạn đã không hoàn thành phiếu bầu đúng hạn</p>
+                <p class="text-sm opacity-80">Vui lòng bắt đầu phiếu bầu mới hoặc xem kết quả</p>
+            </div>
+            <div class="flex gap-4 justify-center">
+                <button class="bg-white text-red-600 px-8 py-4 rounded-xl font-bold text-xl hover:bg-gray-100 transition-colors" 
+                        onclick="startNewVote()">
+                    <i class="fas fa-plus mr-2"></i>Bỏ phiếu mới
+                </button>
+                <button class="bg-white bg-opacity-20 text-white px-8 py-4 rounded-xl font-bold text-xl hover:bg-opacity-30 transition-colors" 
+                        onclick="goToPage('admin')">
+                    <i class="fas fa-chart-line mr-2"></i>Xem kết quả
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample candidates data
+        const candidates = [
+            { id: 1, name: "Bùi Hà Anh", position: "Chi đoàn 11A9", description: "Sinh năm 2009" },
+            { id: 2, name: "Trần Tiến Anh", position: "Chi đoàn 12A7", description: "Sinh năm 2008" },
+            { id: 3, name: "Nguyễn Thị Lan Anh", position: "Chi đoàn CBGV", description: "Sinh năm 1997" },
+            { id: 4, name: "Nguyễn Hồng Khiêm", position: "Chi đoàn CBGV", description: "Sinh năm 1997" },
+            { id: 5, name: "Võ Trần Khánh Linh", position: "Chi đoàn 11A1", description: "Sinh năm 2009" },
+            { id: 6, name: "Lê Hoàng Gia Linh", position: "Chi đoàn CBGV", description: "Sinh năm 1998" },
+            { id: 7, name: "Lê Hoàng Long", position: "Chi đoàn CBGV", description: "Sinh năm 2002" },
+            { id: 8, name: "Huỳnh Thị Bình Minh", position: "Chi đoàn 10A1", description: "Sinh năm 2010" },
+            { id: 9, name: "Nguyễn Thiện Minh", position: "Chi đoàn 12A10", description: "Sinh năm 2008" },
+            { id: 10, name: "Trần Vương Phương Ngân", position: "Chi đoàn 11A5", description: "Sinh năm 2009" },
+            { id: 11, name: "Phạm Kinh Quốc", position: "Chi đoàn 10A3", description: "Sinh năm 2010" },
+            { id: 12, name: "Nguyễn Võ Thảo", position: "Chi đoàn CBGV", description: "Sinh năm 1995" },
+            { id: 13, name: "Lê Đức Thiên", position: "Chi đoàn 12A3", description: "Sinh năm 2008" },
+            { id: 14, name: "Võ Trần Anh Thơ", position: "Chi đoàn 10A4", description: "Sinh năm 2010" },
+            { id: 15, name: "Nguyễn Quý Kỳ Thư", position: "Chi đoàn 11A15", description: "Sinh năm 2009" },
+            { id: 16, name: "Đỗ Nguyễn Hoài Thuận", position: "Chi đoàn CBGV", description: "Sinh năm 2002" },
+            { id: 17, name: "Nguyễn Thị Hoài Thương", position: "Chi đoàn CBGV", description: "Sinh năm 2002" },
+            { id: 18, name: "Võ Hạ Vỹ", position: "Chi đoàn 12A3", description: "Sinh năm 2008" },
+            { id: 19, name: "Trần Văn Ngọc Vỹ", position: "Chi đoàn CBGV", description: "Sinh năm 2001" }
+        ];
+
+        let selectedCandidates = [];
+        let timeLeft = 300; // 5 minutes
+        let countdownTimer;
+        let currentPage = 'voting';
+        let allVotes = [];
+        let voteStats = {};
+
+        // Page navigation
+        function goToPage(page) {
+            const votingPage = document.getElementById('voting-page');
+            const adminPage = document.getElementById('admin-page');
+            
+            if (page === 'voting') {
+                votingPage.classList.remove('hidden');
+                adminPage.classList.add('hidden');
+                currentPage = 'voting';
+            } else if (page === 'admin') {
+                votingPage.classList.add('hidden');
+                adminPage.classList.remove('hidden');
+                currentPage = 'admin';
+                loadAdminData();
+            }
+        }
+
+        // Initialize the page
+        function init() {
+            renderCandidates();
+            startCountdown();
+            updateUI();
+            loadAdminData();
+        }
+
+        // Render candidates grid
+        function renderCandidates() {
+            const grid = document.getElementById('candidates-grid');
+            grid.innerHTML = candidates.map(candidate => `
+                <div class="candidate-card bg-white shadow-lg p-3 relative" onclick="toggleCandidate(${candidate.id})">
+                    <div class="check-icon">
+                        <i class="fas fa-check text-sm"></i>
+                    </div>
+                    <div class="candidate-avatar">
+                        ${candidate.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs bg-blue-100 text-blue-800 px-1 py-1 rounded-full inline-block mb-1">
+                            #${candidate.id}
+                        </div>
+                        <h3 class="font-bold text-sm text-gray-800 mb-1">${candidate.name}</h3>
+                        <p class="text-blue-600 font-semibold text-xs mb-1">${candidate.position}</p>
+                        <p class="text-gray-600 text-xs">${candidate.description}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Toggle candidate selection
+        function toggleCandidate(id) {
+            // Don't allow selection if time is up
+            if (timeLeft <= 0) {
+                return;
+            }
+            
+            const index = selectedCandidates.indexOf(id);
+            
+            if (index > -1) {
+                selectedCandidates.splice(index, 1);
+            } else {
+                if (selectedCandidates.length < 15) {
+                    selectedCandidates.push(id);
+                } else {
+                    alert('Bạn chỉ có thể chọn tối đa 15 ứng viên!');
+                    return;
+                }
+            }
+            
+            updateUI();
+        }
+
+        // Update UI elements
+        function updateUI() {
+            // Update progress bar
+            const progress = (selectedCandidates.length / 15) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-text').textContent = `${selectedCandidates.length}/15`;
+            
+            // Update selected count
+            document.getElementById('selected-count').textContent = selectedCandidates.length;
+            
+            // Update submit button
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = selectedCandidates.length !== 15 || timeLeft <= 0;
+            
+            // Update candidate cards
+            candidates.forEach(candidate => {
+                const card = document.querySelector(`[onclick="toggleCandidate(${candidate.id})"]`);
+                if (selectedCandidates.includes(candidate.id)) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+            
+            // Update selected list
+            const selectedList = document.getElementById('selected-list');
+            selectedList.innerHTML = selectedCandidates.map(id => {
+                const candidate = candidates.find(c => c.id === id);
+                return `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">${candidate.name}</span>`;
+            }).join('');
+        }
+
+        // Start countdown timer
+        function startCountdown() {
+            // Clear any existing timer
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            
+            countdownTimer = setInterval(() => {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('countdown').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    showTimeoutModal();
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        // Show timeout modal
+        function showTimeoutModal() {
+            const timeoutModal = document.getElementById('timeout-modal');
+            timeoutModal.classList.remove('hidden');
+            timeoutModal.classList.add('flex');
+            
+            // Disable all candidate selections
+            document.querySelectorAll('.candidate-card').forEach(card => {
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '0.7';
+            });
+            
+            // Disable submit button
+            document.getElementById('submit-btn').disabled = true;
+        }
+
+        // Start a new vote
+        function startNewVote() {
+            // Hide all modals
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('success-modal').classList.remove('flex');
+            document.getElementById('timeout-modal').classList.add('hidden');
+            document.getElementById('timeout-modal').classList.remove('flex');
+            
+            // Reset voting state
+            selectedCandidates = [];
+            timeLeft = 300; // Reset to 5 minutes
+            
+            // Re-enable candidate selections
+            document.querySelectorAll('.candidate-card').forEach(card => {
+                card.style.pointerEvents = 'auto';
+                card.style.opacity = '1';
+            });
+            
+            // Reset UI and start countdown
+            updateUI();
+            startCountdown();
+            
+            // Make sure we're on the voting page
+            goToPage('voting');
+        }
+
+        // Show confirmation modal
+        function showConfirmation() {
+            const modal = document.getElementById('confirmation-modal');
+            const list = document.getElementById('confirmation-list');
+            
+            list.innerHTML = selectedCandidates.map(id => {
+                const candidate = candidates.find(c => c.id === id);
+                return `
+                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            ${candidate.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800">${candidate.name}</p>
+                            <p class="text-sm text-blue-600">${candidate.position}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // Hide confirmation modal
+        function hideConfirmation() {
+            const modal = document.getElementById('confirmation-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Submit vote
+        function submitVote() {
+            hideConfirmation();
+            
+            // Record the vote
+            const voteData = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString('vi-VN'),
+                candidates: selectedCandidates.map(id => {
+                    const candidate = candidates.find(c => c.id === id);
+                    return {
+                        id: candidate.id,
+                        name: candidate.name,
+                        position: candidate.position
+                    };
+                }),
+                voterIP: 'Anonymous',
+                sessionId: Math.random().toString(36).substr(2, 9)
+            };
+            
+            // Save to localStorage
+            let savedVotes = JSON.parse(localStorage.getItem('votingSystemData') || '[]');
+            savedVotes.push(voteData);
+            localStorage.setItem('votingSystemData', JSON.stringify(savedVotes));
+            
+            // Show success modal
+            const successModal = document.getElementById('success-modal');
+            successModal.classList.remove('hidden');
+            successModal.classList.add('flex');
+            
+            // Cập nhật dữ liệu admin ngay lập tức
+            loadAdminData();
+        }
+
+        // Admin functions
+        function loadAdminData() {
+            const savedVotes = localStorage.getItem('votingSystemData');
+            if (savedVotes) {
+                allVotes = JSON.parse(savedVotes);
+                calculateStatistics();
+            }
+            updateAllDisplays();
+            updateLastUpdateTime();
+        }
+
+        function calculateStatistics() {
+            voteStats = {};
+            
+            allVotes.forEach(vote => {
+                vote.candidates.forEach(candidate => {
+                    if (!voteStats[candidate.id]) {
+                        voteStats[candidate.id] = {
+                            candidate: candidate,
+                            count: 0,
+                            percentage: 0
+                        };
+                    }
+                    voteStats[candidate.id].count++;
+                });
+            });
+            
+            const totalVotes = allVotes.length;
+            Object.keys(voteStats).forEach(id => {
+                voteStats[id].percentage = totalVotes > 0 ? 
+                    ((voteStats[id].count / totalVotes) * 100).toFixed(1) : 0;
+            });
+        }
+
+        function updateAllDisplays() {
+            updateOverviewStats();
+            updateResultsTable();
+            updateRecentVotes();
+            updateAllCandidates();
+        }
+
+        function updateOverviewStats() {
+            document.getElementById('total-votes').textContent = allVotes.length;
+            document.getElementById('participation-rate').textContent = 
+                ((allVotes.length / 1000) * 100).toFixed(1) + '%';
+            
+            let topCandidate = 'Chưa có';
+            let maxVotes = 0;
+            Object.values(voteStats).forEach(stat => {
+                if (stat.count > maxVotes) {
+                    maxVotes = stat.count;
+                    topCandidate = stat.candidate.name;
+                }
+            });
+            document.getElementById('top-candidate').textContent = topCandidate;
+        }
+
+        function updateResultsTable() {
+            const table = document.getElementById('results-table');
+            
+            if (Object.keys(voteStats).length === 0) {
+                table.innerHTML = '<p class="text-gray-500 text-center py-8">Chưa có kết quả bỏ phiếu</p>';
+                return;
+            }
+            
+            const sortedStats = Object.values(voteStats).sort((a, b) => b.count - a.count);
+            
+            table.innerHTML = sortedStats.map((stat, index) => {
+                const percentage = ((stat.count / allVotes.length) * 100).toFixed(1);
+                const medalIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                
+                return `
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                                ${medalIcon || (index + 1)}
+                            </div>
+                            <div>
+                                <p class="font-semibold text-gray-800">${stat.candidate.name}</p>
+                                <p class="text-sm text-gray-600">${stat.candidate.position}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-2xl font-bold text-blue-600">${stat.count}</p>
+                            <p class="text-sm text-gray-500">${percentage}%</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateRecentVotes() {
+            const container = document.getElementById('recent-votes');
+            
+            if (allVotes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Chưa có phiếu bầu nào</p>';
+                return;
+            }
+            
+            const recentVotes = allVotes.slice(-10).reverse();
+            
+            container.innerHTML = recentVotes.map(vote => `
+                <div class="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-semibold text-gray-800">Phiếu #${vote.sessionId}</span>
+                        <span class="text-xs text-gray-500">${vote.timestamp}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        ${vote.candidates.slice(0, 5).map(candidate => 
+                            `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">${candidate.name}</span>`
+                        ).join('')}
+                        ${vote.candidates.length > 5 ? `<span class="text-xs text-gray-500">+${vote.candidates.length - 5} khác</span>` : ''}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        Đã chọn: ${vote.candidates.length}/15 ứng viên
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateAllCandidates() {
+            const container = document.getElementById('all-candidates');
+            
+            container.innerHTML = candidates.map(candidate => {
+                const stat = voteStats[candidate.id];
+                const voteCount = stat ? stat.count : 0;
+                const percentage = allVotes.length > 0 ? ((voteCount / allVotes.length) * 100).toFixed(1) : 0;
+                
+                return `
+                    <div class="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                                ${candidate.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800 text-sm">${candidate.name}</p>
+                                <p class="text-xs text-blue-600">${candidate.position}</p>
+                            </div>
+                        </div>
+                        <div class="text-center mb-2">
+                            <p class="text-2xl font-bold text-blue-600">${voteCount}</p>
+                            <p class="text-xs text-gray-500">${percentage}% phiếu bầu</p>
+                        </div>
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div class="progress-bar-admin bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" 
+                                 style="width: ${Math.min(percentage, 100)}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = 
+                now.toLocaleTimeString('vi-VN');
+        }
+
+        // Export functions
+        function exportResults(format) {
+            if (allVotes.length === 0) {
+                alert('Không có dữ liệu để xuất!');
+                return;
+            }
+            
+            if (format === 'csv') {
+                exportToCSV();
+            } else if (format === 'json') {
+                exportToJSON();
+            } else if (format === 'excel') {
+                exportToExcel();
+            }
+        }
+
+        // Thêm hàm xuất Excel
+        function exportToExcel() {
+            try {
+                // Tạo workbook mới
+                const wb = XLSX.utils.book_new();
+                
+                // Tạo worksheet cho phiếu bầu
+                const voteData = allVotes.map(vote => ({
+                    'Thời gian': vote.timestamp,
+                    'Mã phiếu': vote.sessionId,
+                    'Số ứng viên': vote.candidates.length,
+                    'Danh sách ứng viên': vote.candidates.map(c => c.name).join(', ')
+                }));
+                
+                const voteWS = XLSX.utils.json_to_sheet(voteData);
+                XLSX.utils.book_append_sheet(wb, voteWS, 'Phiếu bầu');
+                
+                // Tạo worksheet cho thống kê ứng viên
+                const sortedStats = Object.values(voteStats).sort((a, b) => b.count - a.count);
+                const statsData = sortedStats.map(stat => ({
+                    'Tên ứng viên': stat.candidate.name,
+                    'Chức vụ': stat.candidate.position,
+                    'Số phiếu': stat.count,
+                    'Tỷ lệ %': stat.percentage + '%'
+                }));
+                
+                const statsWS = XLSX.utils.json_to_sheet(statsData);
+                XLSX.utils.book_append_sheet(wb, statsWS, 'Thống kê ứng viên');
+                
+                // Tạo worksheet cho danh sách ứng viên
+                const candidateData = candidates.map(candidate => {
+                    const stat = voteStats[candidate.id];
+                    return {
+                        'Mã số': candidate.id,
+                        'Tên ứng viên': candidate.name,
+                        'Chức vụ': candidate.position,
+                        'Mô tả': candidate.description,
+                        'Số phiếu': stat ? stat.count : 0,
+                        'Tỷ lệ %': stat ? stat.percentage + '%' : '0%'
+                    };
+                });
+                
+                const candidateWS = XLSX.utils.json_to_sheet(candidateData);
+                XLSX.utils.book_append_sheet(wb, candidateWS, 'Danh sách ứng viên');
+                
+                // Xuất file
+                XLSX.writeFile(wb, `ket-qua-bo-phieu-${new Date().toISOString().slice(0, 10)}.xlsx`);
+                
+                alert('✅ Xuất file Excel thành công!');
+            } catch (error) {
+                console.error('Lỗi khi xuất Excel:', error);
+                alert('❌ Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại!');
+            }
+        }
+
+        function exportToCSV() {
+            let csv = '\uFEFFThời gian,Mã phiếu,Số ứng viên,Danh sách ứng viên\n';
+            
+            allVotes.forEach(vote => {
+                const candidateNames = vote.candidates.map(c => c.name).join('; ');
+                csv += `"${vote.timestamp}","${vote.sessionId}","${vote.candidates.length}","${candidateNames}"\n`;
+            });
+            
+            csv += '\n\nThống kê theo ứng viên:\n';
+            csv += 'Tên ứng viên,Chức vụ,Số phiếu,Tỷ lệ %\n';
+            
+            const sortedStats = Object.values(voteStats).sort((a, b) => b.count - a.count);
+            sortedStats.forEach(stat => {
+                const percentage = ((stat.count / allVotes.length) * 100).toFixed(1);
+                csv += `"${stat.candidate.name}","${stat.candidate.position}","${stat.count}","${percentage}%"\n`;
+            });
+            
+            // Create and download file
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'ket-qua-bo-phieu.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportToJSON() {
+            const data = {
+                exportTime: new Date().toLocaleString('vi-VN'),
+                totalVotes: allVotes.length,
+                participationRate: ((allVotes.length / 1000) * 100).toFixed(1) + '%',
+                statistics: voteStats,
+                votes: allVotes,
+                candidates: candidates
+            };
+            
+            downloadFile(JSON.stringify(data, null, 2), 'ket-qua-bo-phieu.json', 'application/json');
+        }
+
+        function downloadFile(content, filename, contentType) {
+            try {
+                const blob = new Blob([content], { type: contentType + ';charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Lỗi khi tải file:', error);
+                alert('❌ Có lỗi xảy ra khi tải file. Vui lòng thử lại!');
+            }
+        }
+
+        function printResults() {
+            if (allVotes.length === 0) {
+                alert('Không có dữ liệu để in!');
+                return;
+            }
+            
+            const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+            const sortedStats = Object.values(voteStats).sort((a, b) => b.count - a.count);
+            
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Báo cáo Kết quả Bỏ phiếu</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                        .stats { margin-bottom: 30px; }
+                        .candidate { padding: 10px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; }
+                        .summary { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+                        .rank { font-weight: bold; color: #333; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>BÁO CÁO KẾT QUẢ BỎ PHIẾU</h1>
+                        <p>Thời gian xuất: ${new Date().toLocaleString('vi-VN')}</p>
+                    </div>
+                    
+                    <div class="summary">
+                        <h3>Tóm tắt kết quả:</h3>
+                        <p><strong>Tổng số phiếu bầu:</strong> ${allVotes.length}</p>
+                        <p><strong>Tỷ lệ tham gia:</strong> ${((allVotes.length / 1000) * 100).toFixed(1)}%</p>
+                        <p><strong>Tổng số ứng viên:</strong> ${candidates.length}</p>
+                        <p><strong>Ứng viên có nhiều phiếu nhất:</strong> ${sortedStats[0] ? sortedStats[0].candidate.name : 'Chưa có'}</p>
+                    </div>
+                    
+                    <div class="stats">
+                        <h3>Bảng xếp hạng chi tiết:</h3>
+                        ${sortedStats.map((stat, index) => {
+                            const percentage = ((stat.count / allVotes.length) * 100).toFixed(1);
+                            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                            return `
+                                <div class="candidate">
+                                    <div>
+                                        <span class="rank">${medal} ${index + 1}. ${stat.candidate.name}</span><br>
+                                        <small>${stat.candidate.position}</small>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <strong>${stat.count} phiếu</strong><br>
+                                        <small>${percentage}%</small>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    
+                    <div style="margin-top: 40px; text-align: center; color: #666; font-size: 12px;">
+                        <p>Báo cáo được tạo tự động bởi Hệ thống Bỏ phiếu Trực tuyến</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        function refreshData() {
+            loadAdminData();
+            alert('Dữ liệu đã được làm mới!');
+        }
+
+        function resetAllVotes() {
+            if (confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu bỏ phiếu?\n\nHành động này không thể hoàn tác và sẽ xóa:\n- Tất cả phiếu bầu đã ghi nhận\n- Toàn bộ thống kê\n- Lịch sử bỏ phiếu')) {
+                try {
+                    localStorage.removeItem('votingSystemData');
+                    allVotes = [];
+                    voteStats = {};
+                    
+                    // Reset all displays
+                    updateAllDisplays();
+                    
+                    // Show success message
+                    alert('✅ Đã xóa tất cả dữ liệu bỏ phiếu thành công!\n\nTất cả thống kê đã được đặt lại về 0.');
+                    
+                    // Force refresh the admin page
+                    loadAdminData();
+                } catch (error) {
+                    console.error('Lỗi khi xóa dữ liệu:', error);
+                    alert('❌ Có lỗi xảy ra khi xóa dữ liệu. Vui lòng thử lại!');
+                }
+            }
+        }
+
+        // Auto refresh admin data every 30 seconds
+        setInterval(() => {
+            if (currentPage === 'admin') {
+                loadAdminData();
+            }
+        }, 30000);
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && currentPage === 'admin') {
+                goToPage('voting');
+            } else if (e.key === 'ArrowRight' && currentPage === 'voting') {
+                goToPage('admin');
+            }
+        });
+    </script>
+</body>
+</html>
